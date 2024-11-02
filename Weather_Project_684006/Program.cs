@@ -1,4 +1,5 @@
 using System;
+using Azure.Storage.Blobs;
 using Azure.Storage.Queues;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,6 +19,13 @@ var host = new HostBuilder()
             Environment.GetEnvironmentVariable("AzureWebJobsStorage"),
             "weather-jobs"
         ));
+        
+        // Register BlobServiceClient for blob storage operations
+        services.AddSingleton(_ =>
+        {
+            var blobConnectionString = Environment.GetEnvironmentVariable("AzureWebJobsStorage");
+            return new BlobServiceClient(blobConnectionString);
+        });
 
         // Register StartWeatherJob as a transient service
         services.AddTransient<StartWeatherJob>();
