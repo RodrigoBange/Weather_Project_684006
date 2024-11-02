@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "Weather_Project_684006": {
+      "commandName": "Project",
+      "commandLineArgs": "--port 7252",
+      "launchBrowser": false
+    }
+  }
+}
