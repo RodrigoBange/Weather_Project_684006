@@ -29,8 +29,9 @@ var host = new HostBuilder()
 
         // Register StartWeatherJob as a transient service
         services.AddTransient<StartWeatherJob>();
-
-        // You can register other services here as needed
+        
+        // Register ProcessWeatherImageJob as a transient service
+        services.AddTransient<ProcessWeatherImageJob>();
     })
     .Build();
 
