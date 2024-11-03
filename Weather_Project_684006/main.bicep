@@ -114,7 +114,7 @@ resource imageStorageContainer 'Microsoft.Storage/storageAccounts/blobServices/c
   name: 'weather-images'
   parent: blobService
   properties: {
-    publicAccess: 'Blob'
+    publicAccess: 'None'
   }
 }
 

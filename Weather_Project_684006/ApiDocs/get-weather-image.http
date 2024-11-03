@@ -1,0 +1,28 @@
+### Get Weather Image by Job ID
+# This request retrieves SAS URLs for the processed weather images associated with the provided jobId.
+# Replace {{jobId}} with the actual job ID you want to query.
+
+GET http://localhost:7071/api/image/{{jobId}}
+Accept: application/json
+
+# Example URL:
+# GET http://localhost:7071/api/image/abcd1234-ef56-7890-ghij-klmnopqrstuv
+
+# Expected Response when images are found:
+# HTTP/1.1 200 OK
+# [
+#   "https://your-storage-account.blob.core.windows.net/weather-images/abcd1234-ef56-7890-ghij-klmnopqrstuv/image1.png?st=2024...",
+#   "https://your-storage-account.blob.core.windows.net/weather-images/abcd1234-ef56-7890-ghij-klmnopqrstuv/image2.png?st=2024..."
+# ]
+
+# Expected Response when no images are found:
+# HTTP/1.1 404 Not Found
+# {
+#   "message": "No image found for job ID: abcd1234-ef56-7890-ghij-klmnopqrstuv"
+# }
+
+# Expected Response on error:
+# HTTP/1.1 500 Internal Server Error
+# {
+#   "message": "An error occurred while processing your request."
+# }

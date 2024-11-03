@@ -52,7 +52,7 @@ namespace Weather_Project_684006.CheckJobFunction
                 {
                     logger.LogWarning("No images found for jobId: {JobId}. The job might still be processing.", jobId);
                     var ongoingResponse = req.CreateResponse(HttpStatusCode.Accepted);
-                    await ongoingResponse.WriteStringAsync($"Job with jobId {jobId} is still processing or no images have been generated yet.").ConfigureAwait(false);
+                    await ongoingResponse.WriteStringAsync($"Job with jobId {jobId} is still processing or no images have been generated yet. Try reloading the page.").ConfigureAwait(false);
                     return ongoingResponse;
                 }
 
