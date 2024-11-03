@@ -3,6 +3,7 @@ using Azure.Storage.Queues;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Weather_Project_684006.CheckJobFunction;
 using Weather_Project_684006.Factories;
 using Weather_Project_684006.StartWeatherJobFunction;
 using Weather_Project_684006.ProcessWeatherFunction;
@@ -58,6 +59,9 @@ var host = new HostBuilder()
 
         // Register GetWeatherImageJob as a transient service
         services.AddTransient<GetWeatherImageJob>();
+        
+        // Register CheckJobStatus as a transient service
+        services.AddTransient<CheckJobStatus>();
     })
     .Build();
 

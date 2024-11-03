@@ -1,35 +1,47 @@
-using System.Text;
 using Azure.Storage.Blobs;
 using Azure.Storage.Queues.Models;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using Weather_Project_684006.Models;
+using System.Threading.Tasks;
+using System.IO;
 using SixLabors.Fonts;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Drawing.Processing;
 using SixLabors.ImageSharp.Processing;
-using Weather_Project_684006.Models;
 
 namespace Weather_Project_684006.ProcessWeatherImageFunction
 {
-    public class ProcessWeatherImageJob(ILogger<ProcessWeatherImageJob> logger, BlobServiceClient blobServiceClient)
+    public class ProcessWeatherImageJob
     {
+        private readonly ILogger<ProcessWeatherImageJob> _logger;
+        private readonly BlobServiceClient _blobServiceClient;
+
+        public ProcessWeatherImageJob(ILogger<ProcessWeatherImageJob> logger, BlobServiceClient blobServiceClient)
+        {
+            _logger = logger;
+            _blobServiceClient = blobServiceClient;
+        }
+
         [Function(nameof(ProcessWeatherImageJob))]
         public async Task Run([QueueTrigger("image-processing-jobs", Connection = "AzureWebJobsStorage")] QueueMessage message)
         {
-            logger.LogInformation($"Processing image job: {message.MessageText}");
+            _logger.LogInformation($"Processing image job: {message.MessageText}");
 
-            var weatherData = JsonConvert.DeserializeObject<WeatherStation>(message.MessageText);
-            if (weatherData == null)
+            var payload = JsonConvert.DeserializeObject<dynamic>(message.MessageText);
+            string jobId = payload?.JobId;
+            var stationData = JsonConvert.DeserializeObject<WeatherStation>(payload?.StationData.ToString());
+
+            if (stationData == null || string.IsNullOrEmpty(jobId))
             {
-                logger.LogError("Failed to deserialize weather data for image processing.");
+                _logger.LogError("Failed to deserialize station data or missing jobId for image processing.");
                 return;
             }
 
-            var outputImagePath = await GenerateWeatherImage(weatherData);
-            var jobId = Guid.NewGuid().ToString();
-            logger.LogInformation($"Generated jobId: {jobId}");
-            await UploadImageToBlobStorage(outputImagePath, jobId, weatherData.StationName);
+            var outputImagePath = await GenerateWeatherImage(stationData);
+            _logger.LogInformation($"Using provided jobId: {jobId}");
+            await UploadImageToBlobStorage(outputImagePath, jobId, stationData.StationName);
 
             // Clean up the generated image file
             if (File.Exists(outputImagePath))
@@ -38,14 +50,14 @@ namespace Weather_Project_684006.ProcessWeatherImageFunction
             }
         }
 
-        private async Task<string> GenerateWeatherImage(WeatherStation weatherData)
+        private async Task<string> GenerateWeatherImage(WeatherStation stationData)
         {
             var picsumUrl = "https://picsum.photos/800/400";
             var response = await new HttpClient().GetAsync(picsumUrl);
 
             if (!response.IsSuccessStatusCode)
             {
-                logger.LogError($"Error fetching image from Lorem Picsum: {response.StatusCode}");
+                _logger.LogError($"Error fetching image from Lorem Picsum: {response.StatusCode}");
                 throw new Exception("Failed to fetch Lorem Picsum image.");
             }
 
@@ -62,15 +74,14 @@ namespace Weather_Project_684006.ProcessWeatherImageFunction
                 var font = SystemFonts.CreateFont("Arial", 36);
                 image.Mutate(ctx =>
                 {
-                    ctx.DrawText($"Station: {weatherData.StationName}", font, Color.White, new PointF(20, 50));
-                    ctx.DrawText($"Feel Temperature: {weatherData.FeelTemperature}°C", font, Color.White, new PointF(20, 100));
-                    ctx.DrawText($"Ground Temperature: {weatherData.GroundTemperature}°C", font, Color.White, new PointF(20, 150));
+                    ctx.DrawText($"Station: {stationData.StationName}", font, Color.White, new PointF(20, 50));
+                    ctx.DrawText($"Feel Temperature: {stationData.FeelTemperature}°C", font, Color.White, new PointF(20, 100));
+                    ctx.DrawText($"Ground Temperature: {stationData.GroundTemperature}°C", font, Color.White, new PointF(20, 150));
                 });
 
                 await image.SaveAsPngAsync(outputImagePath);
             }
 
-            // Clean up the temporary file after loading it into ImageSharp
             if (File.Exists(tempFilePath))
             {
                 File.Delete(tempFilePath);
@@ -81,16 +92,15 @@ namespace Weather_Project_684006.ProcessWeatherImageFunction
 
         private async Task UploadImageToBlobStorage(string imagePath, string jobId, string stationName)
         {
-            var containerClient = blobServiceClient.GetBlobContainerClient("weather-images");
+            var containerClient = _blobServiceClient.GetBlobContainerClient("weather-images");
             await containerClient.CreateIfNotExistsAsync();
 
-            // Include jobId in the blob name for better organization
-            var blobName = $"{jobId}/station-{stationName}-{DateTime.UtcNow:yyyyMMddHHmmss}.png";
+            var blobName = $"{jobId}/station-{stationName.Replace(" ", "-")}-{DateTime.UtcNow:yyyyMMddHHmmss}.png";
             var blobClient = containerClient.GetBlobClient(blobName);
 
             await using var stream = File.OpenRead(imagePath);
             await blobClient.UploadAsync(stream, true);
-            logger.LogInformation($"Uploaded image for job {jobId}, station {stationName}, to Blob Storage.");
+            _logger.LogInformation($"Uploaded image for job {jobId}, station {stationName}, to Blob Storage.");
         }
     }
 }

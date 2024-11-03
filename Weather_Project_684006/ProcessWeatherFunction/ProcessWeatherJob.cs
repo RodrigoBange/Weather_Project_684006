@@ -10,44 +10,58 @@ using Weather_Project_684006.Models;
 
 namespace Weather_Project_684006.ProcessWeatherFunction
 {
-    public class ProcessWeatherJob(ILogger<ProcessWeatherJob> logger, QueueClientFactory queueClientFactory)
+    public class ProcessWeatherJob
     {
-        private readonly QueueClient _imageQueueClient = queueClientFactory.GetQueueClient("image-processing-jobs");
-        
+        private readonly ILogger<ProcessWeatherJob> _logger;
+        private readonly QueueClient _imageQueueClient;
+
+        public ProcessWeatherJob(ILogger<ProcessWeatherJob> logger, QueueClientFactory queueClientFactory)
+        {
+            _logger = logger;
+            _imageQueueClient = queueClientFactory.GetQueueClient("image-processing-jobs");
+        }
+
         [Function(nameof(ProcessWeatherJob))]
         public async Task Run([QueueTrigger("weather-jobs", Connection = "AzureWebJobsStorage")] QueueMessage message)
         {
-            logger.LogInformation($"Processing message: {message.MessageText}");
+            _logger.LogInformation($"Processing message: {message.MessageText}");
 
             try
             {
-                // Deserialize the raw weather data
-                var weatherDataJson = message.MessageText;
+                // Deserialize the message and extract jobId and weather data
+                var payload = JsonConvert.DeserializeObject<dynamic>(message.MessageText);
+                string jobId = payload?.JobId;
+                string weatherDataJson = payload?.WeatherData;
+
                 var weatherData = ParseWeatherData(weatherDataJson);
-                logger.LogInformation(weatherData.Count().ToString());
 
                 // Check if there is any weather data
-                if (weatherData.Count == 0)
+                if (weatherData.Count == 0 || string.IsNullOrEmpty(jobId))
                 {
-                    logger.LogError("Failed to parse weather data.");
+                    _logger.LogError("Failed to parse weather data or missing jobId.");
                     return;
                 }
 
-                // Add weather data to the queue
+                // Add weather data to the image processing queue with the jobId
                 await _imageQueueClient.CreateIfNotExistsAsync();
-                foreach (var base64Message in weatherData.Select(station => JsonConvert.SerializeObject(station)).Select(
-                             stationMessage => Convert.ToBase64String(Encoding.UTF8.GetBytes(stationMessage))))
+                foreach (var station in weatherData)
                 {
+                    var stationPayload = new
+                    {
+                        JobId = jobId,
+                        StationData = station
+                    };
+                    var base64Message = Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(stationPayload)));
                     await _imageQueueClient.SendMessageAsync(base64Message);
-                    logger.LogInformation($"Added message to the queue: {base64Message}");
+                    _logger.LogInformation($"Added message to the image processing queue for jobId {jobId}: {base64Message}");
                 }
             }
             catch (Exception ex)
             {
-                logger.LogError($"An error occurred while processing the message: {ex.Message}");
+                _logger.LogError($"An error occurred while processing the message: {ex.Message}");
             }
         }
-        
+
         private static List<WeatherStation> ParseWeatherData(string jsonData)
         {
             var results = new List<WeatherStation>();
@@ -66,9 +80,9 @@ namespace Weather_Project_684006.ProcessWeatherFunction
                 results.AddRange(stationMeasurements.Select(
                     locationData => new WeatherStation
                     {
-                        Id = locationData["$id"]?.ToString(), 
-                        StationName = locationData["stationname"]?.ToString(), 
-                        FeelTemperature = locationData["feeltemperature"]?.ToString()?.Replace(",", "."), 
+                        Id = locationData["$id"]?.ToString(),
+                        StationName = locationData["stationname"]?.ToString(),
+                        FeelTemperature = locationData["feeltemperature"]?.ToString()?.Replace(",", "."),
                         GroundTemperature = locationData["groundtemperature"]?.ToString()?.Replace(",", ".")
                     }));
             }

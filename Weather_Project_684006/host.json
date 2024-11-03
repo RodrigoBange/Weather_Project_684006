@@ -1,6 +1,6 @@
 {
     "version": "2.0",
-    "functions": ["GetWeatherImageJob", "ProcessWeatherImageJob", "ProcessWeatherJob", "StartWeatherJob"],
+    "functions": ["CheckJobStatus", "GetWeatherImageJob", "ProcessWeatherImageJob", "ProcessWeatherJob", "StartWeatherJob"],
     "extensionBundle": {
         "id": "Microsoft.Azure.Functions.ExtensionBundle",
         "version": "[3.*, 4.0.0)"
