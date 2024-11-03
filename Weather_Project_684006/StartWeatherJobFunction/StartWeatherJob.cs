@@ -2,8 +2,6 @@ using System.Text;
 using Azure.Storage.Queues;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker.Http;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -78,7 +76,7 @@ public class StartWeatherJob(ILogger<StartWeatherJob> logger, QueueClient queueC
             results.AddRange(stationMeasurements.Select(
                 locationData => new WeatherStation
                 {
-                    ID = locationData["$id"]?.ToString(), 
+                    Id = locationData["$id"]?.ToString(), 
                     StationName = locationData["stationname"]?.ToString(), 
                     FeelTemperature = locationData["feeltemperature"]?.ToString()?.Replace(",", "."), 
                     GroundTemperature = locationData["groundtemperature"]?.ToString()?.Replace(",", ".")

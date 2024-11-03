@@ -1,8 +1,6 @@
 using Azure.Storage.Blobs;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker.Http;
 
 namespace Weather_Project_684006.Functions;
@@ -14,7 +12,7 @@ public class ProcessWeatherImageJob(ILogger<ProcessWeatherImageJob> logger, Blob
         [HttpTrigger(AuthorizationLevel.Function, "get", Route = "image/{jobId}")] HttpRequestData req,
         string jobId)
     {
-        logger.LogInformation($"Processing job ID: {jobId}");
+        logger.LogInformation($"Processing job Id: {jobId}");
 
         var containerClient = blobServiceClient.GetBlobContainerClient("weather-images");
         var blobs = containerClient.GetBlobsAsync(prefix: jobId);
@@ -24,7 +22,7 @@ public class ProcessWeatherImageJob(ILogger<ProcessWeatherImageJob> logger, Blob
             logger.LogInformation($"Found blob: {blob.Name}");
 
             if (!blob.Name.EndsWith(".png", StringComparison.OrdinalIgnoreCase)) continue;
-            logger.LogInformation($"Image found for job ID: {jobId}");
+            logger.LogInformation($"Image found for job Id: {jobId}");
 
             var blobClient = containerClient.GetBlobClient(blob.Name);
             var memoryStream = new MemoryStream();
@@ -40,9 +38,9 @@ public class ProcessWeatherImageJob(ILogger<ProcessWeatherImageJob> logger, Blob
             return response;
         }
 
-        logger.LogError($"No image found for job ID: {jobId}");
+        logger.LogError($"No image found for job Id: {jobId}");
         var notFoundResponse = req.CreateResponse(System.Net.HttpStatusCode.NotFound);
-        await notFoundResponse.WriteStringAsync($"No image found for job ID: {jobId}");
+        await notFoundResponse.WriteStringAsync($"No image found for job Id: {jobId}");
         return notFoundResponse;
     }
 }
