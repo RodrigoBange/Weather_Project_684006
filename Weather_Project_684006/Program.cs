@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Weather_Project_684006.ProcessWeatherImageFunction;
 using Weather_Project_684006.StartWeatherJobFunction;
+using Weather_Project_684006.Utilities;
 
 var host = new HostBuilder()
     .ConfigureFunctionsWebApplication()
@@ -27,6 +28,9 @@ var host = new HostBuilder()
             var blobConnectionString = Environment.GetEnvironmentVariable("AzureWebJobsStorage");
             return new BlobServiceClient(blobConnectionString);
         });
+        
+        // Register SasTokenGenerator as a singleton service
+        services.AddSingleton<SasTokenGenerator>();
 
         // Register StartWeatherJob as a transient service
         services.AddTransient<StartWeatherJob>();

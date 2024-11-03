@@ -11,22 +11,14 @@ using Weather_Project_684006.Models;
 
 namespace Weather_Project_684006.ProcessWeatherFunction
 {
-    public class ProcessWeatherJob
+    public class ProcessWeatherJob(ILogger<ProcessWeatherJob> logger, BlobServiceClient blobServiceClient)
     {
-        private readonly ILogger<ProcessWeatherJob> _logger;
-        private readonly BlobServiceClient _blobServiceClient;
         private static readonly HttpClient HttpClient = new();
-
-        public ProcessWeatherJob(ILogger<ProcessWeatherJob> logger, BlobServiceClient blobServiceClient)
-        {
-            _logger = logger;
-            _blobServiceClient = blobServiceClient;
-        }
 
         [Function(nameof(ProcessWeatherJob))]
         public async Task Run([QueueTrigger("weather-jobs", Connection = "AzureWebJobsStorage")] QueueMessage message)
         {
-            _logger.LogInformation($"Processing message: {message.MessageText}");
+            logger.LogInformation($"Processing message: {message.MessageText}");
 
             try
             {
@@ -34,19 +26,19 @@ namespace Weather_Project_684006.ProcessWeatherFunction
                 var weatherData = JsonConvert.DeserializeObject<WeatherStation>(message.MessageText);
                 if (weatherData == null)
                 {
-                    _logger.LogError("Failed to deserialize weather data.");
+                    logger.LogError("Failed to deserialize weather data.");
                     return;
                 }
 
                 // Generate a unique jobId
                 var jobId = Guid.NewGuid().ToString();
-                _logger.LogInformation($"Generated jobId: {jobId}");
+                logger.LogInformation($"Generated jobId: {jobId}");
 
                 // Fetch a random image from Lorem Picsum
                 var imagePath = await FetchLoremPicsumImage();
                 if (imagePath == null)
                 {
-                    _logger.LogError("Failed to fetch Lorem Picsum image.");
+                    logger.LogError("Failed to fetch Lorem Picsum image.");
                     return;
                 }
 
@@ -56,11 +48,11 @@ namespace Weather_Project_684006.ProcessWeatherFunction
                 // Upload the image to Azure Blob Storage with the jobId
                 await UploadImageToBlobStorage(outputImagePath, jobId, weatherData.StationName);
 
-                _logger.LogInformation($"Image for {weatherData.StationName} generated and uploaded with jobId: {jobId}");
+                logger.LogInformation($"Image for {weatherData.StationName} generated and uploaded with jobId: {jobId}");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"An error occurred: {ex.Message}");
+                logger.LogError($"An error occurred: {ex.Message}");
                 throw;
             }
         }
@@ -116,7 +108,7 @@ namespace Weather_Project_684006.ProcessWeatherFunction
 
         private async Task UploadImageToBlobStorage(string imagePath, string jobId, string? stationName)
         {
-            var containerClient = _blobServiceClient.GetBlobContainerClient("weather-images");
+            var containerClient = blobServiceClient.GetBlobContainerClient("weather-images");
             await containerClient.CreateIfNotExistsAsync();
 
             var blobName = $"{jobId}/station-{stationName}-{DateTime.UtcNow:yyyyMMddHHmmss}.png";

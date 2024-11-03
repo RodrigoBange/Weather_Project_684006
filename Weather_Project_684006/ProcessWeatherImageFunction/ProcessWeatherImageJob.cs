@@ -1,46 +1,55 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using Azure.Storage.Blobs;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
+using Weather_Project_684006.Utilities;
 
-namespace Weather_Project_684006.ProcessWeatherImageFunction;
-
-public class ProcessWeatherImageJob(ILogger<ProcessWeatherImageJob> logger, BlobServiceClient blobServiceClient)
+namespace Weather_Project_684006.ProcessWeatherImageFunction
 {
-    [Function("ProcessWeatherImageJob")]
-    public async Task<HttpResponseData> Run(
-        [HttpTrigger(AuthorizationLevel.Function, "get", Route = "image/{jobId}")] HttpRequestData req,
-        string jobId)
+    public class ProcessWeatherImageJob(
+        ILogger<ProcessWeatherImageJob> logger,
+        BlobServiceClient blobServiceClient,
+        SasTokenGenerator sasTokenGenerator)
     {
-        logger.LogInformation($"Processing job Id: {jobId}");
-
-        var containerClient = blobServiceClient.GetBlobContainerClient("weather-images");
-        var blobs = containerClient.GetBlobsAsync(prefix: jobId);
-
-        await foreach (var blob in blobs)
+        [Function("ProcessWeatherImageJob")]
+        public async Task<HttpResponseData> Run(
+            [HttpTrigger(AuthorizationLevel.Function, "get", Route = "image/{jobId}")] HttpRequestData req,
+            string jobId)
         {
-            logger.LogInformation($"Found blob: {blob.Name}");
+            logger.LogInformation($"Processing job Id: {jobId}");
 
-            if (!blob.Name.EndsWith(".png", StringComparison.OrdinalIgnoreCase)) continue;
-            logger.LogInformation($"Image found for job Id: {jobId}");
+            const string containerName = "weather-images";
+            var sasUrls = new List<string>();
 
-            var blobClient = containerClient.GetBlobClient(blob.Name);
-            var memoryStream = new MemoryStream();
+            var containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+            var blobs = containerClient.GetBlobsAsync(prefix: jobId);
 
-            await blobClient.DownloadToAsync(memoryStream);
-            memoryStream.Position = 0;
+            await foreach (var blob in blobs)
+            {
+                logger.LogInformation($"Found blob: {blob.Name}");
 
-            var response = req.CreateResponse();
-            response.Headers.Add("Content-Type", "image/png");
-            response.Headers.Add("Content-Disposition", $"inline; filename=\"{Path.GetFileName(blob.Name)}\"");
-            await response.WriteBytesAsync(memoryStream.ToArray());
-                    
+                if (!blob.Name.EndsWith(".png", StringComparison.OrdinalIgnoreCase)) continue;
+
+                // Generate SAS URI for each blob
+                var sasUri = sasTokenGenerator.GenerateBlobSasUri(containerName, blob.Name, TimeSpan.FromHours(1));
+                sasUrls.Add(sasUri.ToString());
+            }
+
+            if (sasUrls.Count == 0)
+            {
+                logger.LogError($"No image found for job Id: {jobId}");
+                var notFoundResponse = req.CreateResponse(System.Net.HttpStatusCode.NotFound);
+                await notFoundResponse.WriteStringAsync($"No image found for job Id: {jobId}");
+                return notFoundResponse;
+            }
+
+            // Return the list of SAS URLs as JSON
+            var response = req.CreateResponse(System.Net.HttpStatusCode.OK);
+            await response.WriteAsJsonAsync(sasUrls);
             return response;
         }
-
-        logger.LogError($"No image found for job Id: {jobId}");
-        var notFoundResponse = req.CreateResponse(System.Net.HttpStatusCode.NotFound);
-        await notFoundResponse.WriteStringAsync($"No image found for job Id: {jobId}");
-        return notFoundResponse;
     }
 }
