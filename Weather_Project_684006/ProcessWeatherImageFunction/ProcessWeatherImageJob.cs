@@ -1,9 +1,9 @@
 using Azure.Storage.Blobs;
 using Microsoft.Azure.Functions.Worker;
-using Microsoft.Extensions.Logging;
 using Microsoft.Azure.Functions.Worker.Http;
+using Microsoft.Extensions.Logging;
 
-namespace Weather_Project_684006.Functions;
+namespace Weather_Project_684006.ProcessWeatherImageFunction;
 
 public class ProcessWeatherImageJob(ILogger<ProcessWeatherImageJob> logger, BlobServiceClient blobServiceClient)
 {

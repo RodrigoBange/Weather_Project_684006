@@ -1,13 +1,13 @@
 using System.Text;
 using Azure.Storage.Queues;
 using Microsoft.Azure.Functions.Worker;
-using Microsoft.Extensions.Logging;
 using Microsoft.Azure.Functions.Worker.Http;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Weather_Project_684006.Models;
 
-namespace Weather_Project_684006.Functions;
+namespace Weather_Project_684006.StartWeatherJobFunction;
 
 public class StartWeatherJob(ILogger<StartWeatherJob> logger, QueueClient queueClient)
 {

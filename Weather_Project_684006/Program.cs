@@ -4,7 +4,8 @@ using Azure.Storage.Queues;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Weather_Project_684006.Functions;
+using Weather_Project_684006.ProcessWeatherImageFunction;
+using Weather_Project_684006.StartWeatherJobFunction;
 
 var host = new HostBuilder()
     .ConfigureFunctionsWebApplication()

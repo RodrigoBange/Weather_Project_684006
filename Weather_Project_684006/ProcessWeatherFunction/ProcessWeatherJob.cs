@@ -1,7 +1,3 @@
-using System;
-using System.IO;
-using System.Net.Http;
-using System.Threading.Tasks;
 using Azure.Storage.Blobs;
 using Azure.Storage.Queues.Models;
 using Microsoft.Azure.Functions.Worker;
@@ -13,7 +9,7 @@ using SixLabors.ImageSharp.Drawing.Processing;
 using SixLabors.ImageSharp.Processing;
 using Weather_Project_684006.Models;
 
-namespace Weather_Project_684006.Functions
+namespace Weather_Project_684006.ProcessWeatherFunction
 {
     public class ProcessWeatherJob
     {
