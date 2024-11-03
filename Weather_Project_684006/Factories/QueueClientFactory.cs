@@ -7,6 +7,7 @@ namespace Weather_Project_684006.Factories
     {
         public QueueClient GetQueueClient(string queueName)
         {
+            // Retrieve the appropriate QueueClient based on the queue name
             return queueName switch
             {
                 "weather-jobs" => serviceProvider.GetRequiredService<QueueClientWeather>().Client,

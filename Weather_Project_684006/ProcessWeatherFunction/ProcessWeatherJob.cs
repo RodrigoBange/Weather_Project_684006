@@ -10,55 +10,58 @@ using Weather_Project_684006.Models;
 
 namespace Weather_Project_684006.ProcessWeatherFunction
 {
-    public class ProcessWeatherJob
+    public class ProcessWeatherJob(ILogger<ProcessWeatherJob> logger, QueueClientFactory queueClientFactory)
     {
-        private readonly ILogger<ProcessWeatherJob> _logger;
-        private readonly QueueClient _imageQueueClient;
-
-        public ProcessWeatherJob(ILogger<ProcessWeatherJob> logger, QueueClientFactory queueClientFactory)
-        {
-            _logger = logger;
-            _imageQueueClient = queueClientFactory.GetQueueClient("image-processing-jobs");
-        }
+        private readonly QueueClient _imageQueueClient = queueClientFactory.GetQueueClient("image-processing-jobs");
 
         [Function(nameof(ProcessWeatherJob))]
         public async Task Run([QueueTrigger("weather-jobs", Connection = "AzureWebJobsStorage")] QueueMessage message)
         {
-            _logger.LogInformation($"Processing message: {message.MessageText}");
+            logger.LogInformation("Processing message: {MessageText}", message.MessageText);
 
             try
             {
-                // Deserialize the message and extract jobId and weather data
-                var payload = JsonConvert.DeserializeObject<dynamic>(message.MessageText);
-                string jobId = payload?.JobId;
-                string weatherDataJson = payload?.WeatherData;
+                // Deserialize the incoming message to extract jobId and weather data
+                var payload = JsonConvert.DeserializeObject<WeatherJobPayload>(message.MessageText);
 
-                var weatherData = ParseWeatherData(weatherDataJson);
-
-                // Check if there is any weather data
-                if (weatherData.Count == 0 || string.IsNullOrEmpty(jobId))
+                if (payload == null || string.IsNullOrWhiteSpace(payload.JobId) || string.IsNullOrWhiteSpace(payload.WeatherData))
                 {
-                    _logger.LogError("Failed to parse weather data or missing jobId.");
+                    logger.LogError("Invalid payload: missing jobId or weather data.");
                     return;
                 }
 
-                // Add weather data to the image processing queue with the jobId
+                // Parse the weather data into a list of WeatherStation objects
+                var weatherData = ParseWeatherData(payload.WeatherData);
+
+                // Validate the parsed data
+                if (weatherData.Count == 0)
+                {
+                    logger.LogError("Parsed weather data is empty for jobId: {JobId}", payload.JobId);
+                    return;
+                }
+
+                // Add parsed weather station data to the image processing queue
                 await _imageQueueClient.CreateIfNotExistsAsync();
                 foreach (var station in weatherData)
                 {
                     var stationPayload = new
                     {
-                        JobId = jobId,
+                        payload.JobId,
                         StationData = station
                     };
+
                     var base64Message = Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(stationPayload)));
                     await _imageQueueClient.SendMessageAsync(base64Message);
-                    _logger.LogInformation($"Added message to the image processing queue for jobId {jobId}: {base64Message}");
+                    logger.LogInformation("Added message to the image processing queue for jobId {JobId}: {StationName}", payload.JobId, station.StationName);
                 }
+            }
+            catch (JsonException jsonEx)
+            {
+                logger.LogError(jsonEx, "JSON deserialization error while processing the message.");
             }
             catch (Exception ex)
             {
-                _logger.LogError($"An error occurred while processing the message: {ex.Message}");
+                logger.LogError(ex, "An unexpected error occurred while processing the message.");
             }
         }
 
@@ -77,6 +80,7 @@ namespace Weather_Project_684006.ProcessWeatherFunction
                     return results;
                 }
 
+                // Convert station measurements to a list of WeatherStation objects
                 results.AddRange(stationMeasurements.Select(
                     locationData => new WeatherStation
                     {
@@ -85,6 +89,10 @@ namespace Weather_Project_684006.ProcessWeatherFunction
                         FeelTemperature = locationData["feeltemperature"]?.ToString()?.Replace(",", "."),
                         GroundTemperature = locationData["groundtemperature"]?.ToString()?.Replace(",", ".")
                     }));
+            }
+            catch (JsonException jsonEx)
+            {
+                Console.WriteLine($"JSON parsing error: {jsonEx.Message}");
             }
             catch (Exception ex)
             {

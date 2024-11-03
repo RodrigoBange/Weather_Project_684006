@@ -2,12 +2,7 @@ using Azure.Storage.Queues;
 
 namespace Weather_Project_684006.Factories;
 
-public class QueueClientWeather
+public class QueueClientWeather(QueueClient client)
 {
-    public QueueClient Client { get; }
-
-    public QueueClientWeather(QueueClient client)
-    {
-        Client = client;
-    }
+    public QueueClient Client { get; } = client;
 }

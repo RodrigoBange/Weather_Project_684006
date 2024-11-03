@@ -48,20 +48,23 @@ var host = new HostBuilder()
         // Register SasTokenGenerator as a singleton service
         services.AddSingleton<SasTokenGenerator>();
 
-        // Register StartWeatherJob as a transient service
+        // Register StartWeatherJob as a transient service & HttpClient for making HTTP requests
         services.AddTransient<StartWeatherJob>();
+        services.AddHttpClient<StartWeatherJob>();
 
         // Register ProcessWeatherJob as a transient service
         services.AddTransient<ProcessWeatherJob>();
         
-        // Register ProcessWeatherImageJob as a transient service
+        // Register ProcessWeatherImageJob as a transient service & HttpClient for making HTTP requests
         services.AddTransient<ProcessWeatherImageJob>();
+        services.AddHttpClient<ProcessWeatherImageJob>();
 
-        // Register GetWeatherImageJob as a transient service
+        // Register GetWeatherImageJob as a transient service & HttpClient for making HTTP requests
         services.AddTransient<GetWeatherImageJob>();
         
         // Register CheckJobStatus as a transient service
         services.AddTransient<CheckJobStatus>();
+        
     })
     .Build();
 
