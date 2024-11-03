@@ -1,20 +1,19 @@
-using Azure.Storage.Blobs;
+using System.Text;
+using Azure.Storage.Queues;
 using Azure.Storage.Queues.Models;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using SixLabors.Fonts;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Drawing.Processing;
-using SixLabors.ImageSharp.Processing;
+using Newtonsoft.Json.Linq;
+using Weather_Project_684006.Factories;
 using Weather_Project_684006.Models;
 
 namespace Weather_Project_684006.ProcessWeatherFunction
 {
-    public class ProcessWeatherJob(ILogger<ProcessWeatherJob> logger, BlobServiceClient blobServiceClient)
+    public class ProcessWeatherJob(ILogger<ProcessWeatherJob> logger, QueueClientFactory queueClientFactory)
     {
-        private static readonly HttpClient HttpClient = new();
-
+        private readonly QueueClient _imageQueueClient = queueClientFactory.GetQueueClient("image-processing-jobs");
+        
         [Function(nameof(ProcessWeatherJob))]
         public async Task Run([QueueTrigger("weather-jobs", Connection = "AzureWebJobsStorage")] QueueMessage message)
         {
@@ -22,100 +21,63 @@ namespace Weather_Project_684006.ProcessWeatherFunction
 
             try
             {
-                // Deserialize the message and check for null weatherData
-                var weatherData = JsonConvert.DeserializeObject<WeatherStation>(message.MessageText);
-                if (weatherData == null)
+                // Deserialize the raw weather data
+                var weatherDataJson = message.MessageText;
+                var weatherData = ParseWeatherData(weatherDataJson);
+                logger.LogInformation(weatherData.Count().ToString());
+
+                // Check if there is any weather data
+                if (weatherData.Count == 0)
                 {
-                    logger.LogError("Failed to deserialize weather data.");
+                    logger.LogError("Failed to parse weather data.");
                     return;
                 }
 
-                // Generate a unique jobId
-                var jobId = Guid.NewGuid().ToString();
-                logger.LogInformation($"Generated jobId: {jobId}");
-
-                // Fetch a random image from Lorem Picsum
-                var imagePath = await FetchLoremPicsumImage();
-                if (imagePath == null)
+                // Add weather data to the queue
+                await _imageQueueClient.CreateIfNotExistsAsync();
+                foreach (var base64Message in weatherData.Select(station => JsonConvert.SerializeObject(station)).Select(
+                             stationMessage => Convert.ToBase64String(Encoding.UTF8.GetBytes(stationMessage))))
                 {
-                    logger.LogError("Failed to fetch Lorem Picsum image.");
-                    return;
+                    await _imageQueueClient.SendMessageAsync(base64Message);
+                    logger.LogInformation($"Added message to the queue: {base64Message}");
                 }
-
-                // Generate the image by overlaying weather data
-                var outputImagePath = await GenerateWeatherImage(weatherData, imagePath);
-
-                // Upload the image to Azure Blob Storage with the jobId
-                await UploadImageToBlobStorage(outputImagePath, jobId, weatherData.StationName);
-
-                logger.LogInformation($"Image for {weatherData.StationName} generated and uploaded with jobId: {jobId}");
             }
             catch (Exception ex)
             {
-                logger.LogError($"An error occurred: {ex.Message}");
-                throw;
+                logger.LogError($"An error occurred while processing the message: {ex.Message}");
             }
         }
-
-        private static async Task<string?> FetchLoremPicsumImage()
+        
+        private static List<WeatherStation> ParseWeatherData(string jsonData)
         {
-            var picsumUrl = "https://picsum.photos/800/400";
+            var results = new List<WeatherStation>();
 
             try
             {
-                var response = await HttpClient.GetAsync(picsumUrl);
-                if (response.IsSuccessStatusCode)
+                var jsonObject = JObject.Parse(jsonData);
+                var stationMeasurements = jsonObject["actual"]?["stationmeasurements"];
+
+                if (stationMeasurements is not { HasValues: true })
                 {
-                    var imagePath = Path.GetTempFileName() + ".jpg";
-                    await using var stream = await response.Content.ReadAsStreamAsync();
-                    await using var fileStream = File.Create(imagePath);
-                    await stream.CopyToAsync(fileStream);
-                    return imagePath;
+                    Console.WriteLine("No measurements found in the JSON.");
+                    return results;
                 }
-                else
-                {
-                    Console.WriteLine($"Error fetching image: {response.StatusCode}");
-                }
+
+                results.AddRange(stationMeasurements.Select(
+                    locationData => new WeatherStation
+                    {
+                        Id = locationData["$id"]?.ToString(), 
+                        StationName = locationData["stationname"]?.ToString(), 
+                        FeelTemperature = locationData["feeltemperature"]?.ToString()?.Replace(",", "."), 
+                        GroundTemperature = locationData["groundtemperature"]?.ToString()?.Replace(",", ".")
+                    }));
             }
-            catch (HttpRequestException e)
+            catch (Exception ex)
             {
-                Console.WriteLine($"Request error: {e.Message}");
+                Console.WriteLine($"Error parsing weather data: {ex.Message}");
             }
 
-            return null;
-        }
-
-        private static async Task<string> GenerateWeatherImage(WeatherStation weatherData, string imagePath)
-        {
-            using var image = await Image.LoadAsync(imagePath);
-
-            // Define font and drawing options
-            var font = SystemFonts.CreateFont("Arial", 36);
-
-            // Draw text onto the image
-            image.Mutate(ctx =>
-            {
-                ctx.DrawText($"Station: {weatherData.StationName}", font, Color.White, new PointF(20, 50));
-                ctx.DrawText($"Feel Temperature: {weatherData.FeelTemperature}°C", font, Color.White, new PointF(20, 100));
-                ctx.DrawText($"Ground Temperature: {weatherData.GroundTemperature}°C", font, Color.White, new PointF(20, 150));
-            });
-
-            // Save the modified image to a new file
-            var outputImagePath = Path.GetTempFileName() + ".png";
-            await image.SaveAsPngAsync(outputImagePath);
-            return outputImagePath;
-        }
-
-        private async Task UploadImageToBlobStorage(string imagePath, string jobId, string? stationName)
-        {
-            var containerClient = blobServiceClient.GetBlobContainerClient("weather-images");
-            await containerClient.CreateIfNotExistsAsync();
-
-            var blobName = $"{jobId}/station-{stationName}-{DateTime.UtcNow:yyyyMMddHHmmss}.png";
-            var blobClient = containerClient.GetBlobClient(blobName);
-
-            await using var stream = File.OpenRead(imagePath);
-            await blobClient.UploadAsync(stream, true);
+            return results;
         }
     }
 }
