@@ -2,11 +2,11 @@
 # This request checks the status of the image processing job by using the provided jobId.
 # Replace {{jobId}} with the actual job ID obtained from the StartWeatherJob response.
 
-GET http://localhost:7071/api/status/{{jobId}}
+GET https://func-t5kybjm4tocge.azurewebsites.net/api/status/{{jobId}}
 Accept: application/json
 
 # Example URL:
-# GET http://localhost:7071/api/status/abcd1234-ef56-7890-ghij-klmnopqrstuv
+# GET https://func-t5kybjm4tocge.azurewebsites.net/api/status/abcd1234-ef56-7890-ghij-klmnopqrstuv
 
 # Response example when images are still being processed:
 # HTTP/1.1 202 Accepted
@@ -19,7 +19,7 @@ Accept: application/json
 # {
 #   "JobId": "abcd1234-ef56-7890-ghij-klmnopqrstuv",
 #   "ImageUrls": [
-#     "https://your-storage-account.blob.core.windows.net/weather-images/abcd1234-ef56-7890-ghij-klmnopqrstuv/image1.png?st=2024...",
-#     "https://your-storage-account.blob.core.windows.net/weather-images/abcd1234-ef56-7890-ghij-klmnopqrstuv/image2.png?st=2024..."
+#     "https://funcstort5kybjm4tocge.blob.core.windows.net/weather-images/abcd1234-ef56-7890-ghij-klmnopqrstuv/image1.png?st=2024...",
+#     "https://funcstort5kybjm4tocge.blob.core.windows.net/weather-images/abcd1234-ef56-7890-ghij-klmnopqrstuv/image2.png?st=2024..."
 #   ]
 # }

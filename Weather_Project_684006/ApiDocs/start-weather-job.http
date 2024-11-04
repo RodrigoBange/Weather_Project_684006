@@ -2,12 +2,12 @@
 # This request triggers the StartWeatherJob function to initiate the process of fetching weather data from Buienradar
 # and enqueues the data for further processing.
 
-GET http://localhost:7071/api/StartWeatherJob
+GET https://func-t5kybjm4tocge.azurewebsites.net/api/StartWeatherJob
 Accept: application/json
 
 # Response example:
 # {
 #   "Message": "Weather data added to the queue.",
 #   "JobId": "abcd1234-ef56-7890-ghij-klmnopqrstuv",
-#   "StatusUrl": "http://localhost:7071/api/status/abcd1234-ef56-7890-ghij-klmnopqrstuv"
+#   "StatusUrl": "https://func-t5kybjm4tocge.azurewebsites.net/api/status/abcd1234-ef56-7890-ghij-klmnopqrstuv"
 # }
