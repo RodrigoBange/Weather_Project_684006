@@ -13,12 +13,21 @@ namespace Weather_Project_684006.CheckJobFunction
         SasTokenGenerator sasTokenGenerator)
     {
         private const string ContainerName = "weather-images";
+        private readonly string _expectedApiKey = Environment.GetEnvironmentVariable("MY_API_KEY");
 
         [Function("CheckJobStatus")]
         public async Task<HttpResponseData> Run(
-            [HttpTrigger(AuthorizationLevel.Function, "get", Route = "status/{jobId}")] HttpRequestData req,
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "status/{jobId}")] HttpRequestData req,
             string jobId)
         {
+            // Validate the API key
+            if (!AuthHelper.ValidateApiKey(req, _expectedApiKey, logger))
+            {
+                var unauthorizedResponse = req.CreateResponse(System.Net.HttpStatusCode.Unauthorized);
+                await unauthorizedResponse.WriteStringAsync("Unauthorized");
+                return unauthorizedResponse;
+            }
+            
             logger.LogInformation("Checking status for jobId: {JobId}", jobId);
 
             try

@@ -13,12 +13,21 @@ namespace Weather_Project_684006.GetWeatherImageFunction
         SasTokenGenerator sasTokenGenerator)
     {
         private const string ContainerName = "weather-images";
+        private readonly string _expectedApiKey = Environment.GetEnvironmentVariable("MY_API_KEY");
 
         [Function("GetWeatherImageJob")]
         public async Task<HttpResponseData> Run(
-            [HttpTrigger(AuthorizationLevel.Function, "get", Route = "image/{jobId}")] HttpRequestData req,
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "image/{jobId}")] HttpRequestData req,
             string jobId)
         {
+            // Validate the API key
+            if (!AuthHelper.ValidateApiKey(req, _expectedApiKey, logger))
+            {
+                var unauthorizedResponse = req.CreateResponse(System.Net.HttpStatusCode.Unauthorized);
+                await unauthorizedResponse.WriteStringAsync("Unauthorized");
+                return unauthorizedResponse;
+            }
+            
             logger.LogInformation("Generating SAS token for job ID: {JobId}", jobId);
 
             var sasUrls = new List<string>();

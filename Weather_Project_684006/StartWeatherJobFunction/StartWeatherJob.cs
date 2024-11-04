@@ -5,6 +5,7 @@ using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Weather_Project_684006.Factories;
+using Weather_Project_684006.Utilities;
 
 namespace Weather_Project_684006.StartWeatherJobFunction
 {
@@ -14,10 +15,19 @@ namespace Weather_Project_684006.StartWeatherJobFunction
         HttpClient httpClient)
     {
         private readonly QueueClient _weatherQueueClient = queueClientFactory.GetQueueClient("weather-jobs");
+        private readonly string _expectedApiKey = Environment.GetEnvironmentVariable("MY_API_KEY");
 
         [Function(nameof(StartWeatherJob))]
-        public async Task<HttpResponseData> Run([HttpTrigger(AuthorizationLevel.Function, "get", "post")] HttpRequestData req)
+        public async Task<HttpResponseData> Run([HttpTrigger(AuthorizationLevel.Anonymous, "get", "post")] HttpRequestData req)
         {
+            // Validate the API key
+            if (!AuthHelper.ValidateApiKey(req, _expectedApiKey, logger))
+            {
+                var unauthorizedResponse = req.CreateResponse(System.Net.HttpStatusCode.Unauthorized);
+                await unauthorizedResponse.WriteStringAsync("Unauthorized");
+                return unauthorizedResponse;
+            }
+            
             logger.LogInformation("StartWeatherJob function triggered. Using queue: {QueueName}", _weatherQueueClient.Name);
 
             try
